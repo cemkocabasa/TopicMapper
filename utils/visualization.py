@@ -5,7 +5,6 @@ import numpy as np
 from typing import List, Dict, Any
 import pandas as pd
 from sklearn.decomposition import PCA
-from wordcloud import WordCloud
 import io
 
 def create_topic_visualization(topics: List[Dict[str, Any]]):
@@ -62,6 +61,9 @@ def create_cluster_visualization(embeddings, clusters, responses, n_clusters):
     pca = PCA(n_components=2)
     reduced_embeddings = pca.fit_transform(embeddings)
     
+    # Calculate the variance explained by each component
+    explained_variance_ratio = pca.explained_variance_ratio_
+    
     # Create a DataFrame for Plotly
     df = pd.DataFrame({
         'x': reduced_embeddings[:, 0],
@@ -81,8 +83,11 @@ def create_cluster_visualization(embeddings, clusters, responses, n_clusters):
         color='cluster',
         hover_data=['response'],
         color_discrete_sequence=colors,
-        title="Response Clusters",
-        labels={'x': 'Component 1', 'y': 'Component 2'},
+        title="Response Clusters - Semantic Similarity Map",
+        labels={
+            'x': f'Principal Component 1 ({explained_variance_ratio[0]:.0%} variance)', 
+            'y': f'Principal Component 2 ({explained_variance_ratio[1]:.0%} variance)'
+        },
         height=600
     )
     
@@ -91,6 +96,18 @@ def create_cluster_visualization(embeddings, clusters, responses, n_clusters):
         xaxis=dict(showgrid=True),
         yaxis=dict(showgrid=True),
         legend_title_text='Cluster'
+    )
+    
+    # Add explanatory text about PCA
+    fig.add_annotation(
+        x=0.5,
+        y=-0.15,
+        xref="paper",
+        yref="paper",
+        text="This map visualizes the semantic relationships between responses. Points that are closer together have similar meanings.",
+        showarrow=False,
+        font=dict(size=12),
+        align="center"
     )
     
     # Add cluster centers
