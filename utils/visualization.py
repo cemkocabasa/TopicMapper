@@ -118,57 +118,74 @@ def create_cluster_visualization(embeddings, clusters, responses, n_clusters):
     
     return fig
 
-def create_word_cloud(responses, language):
+def create_likert_scale_visualization(responses, language):
     """
-    Create a word cloud visualization from the responses.
+    Create a Likert scale visualization of response sentiment.
     
     Args:
         responses: List of text responses
         language: Language code ('en' for English, 'tr' for Turkish)
     
     Returns:
-        Matplotlib figure
+        Plotly figure
     """
-    # Join all responses
-    text = ' '.join(responses)
+    # Calculate a simple sentiment score for each response
+    sentiment_scores = []
     
-    # Define stopwords based on language
-    stopwords = []
-    if language == 'tr':
-        # Common Turkish stopwords
-        stopwords = [
-            've', 'ile', 'bu', 'için', 'bir', 'da', 'de', 'ama', 'fakat', 'ki',
-            'çünkü', 'sonra', 'önce', 'kadar', 'gibi', 'daha', 'kendi', 'her',
-            'bazı', 'bütün', 'çok', 'defa', 'kez', 'ben', 'sen', 'o', 'biz',
-            'siz', 'onlar', 'bana', 'sana', 'ona', 'bize', 'size', 'onlara'
-        ]
-    else:  # English
-        # Common English stopwords
-        stopwords = [
-            'the', 'and', 'to', 'of', 'a', 'in', 'for', 'is', 'on', 'that', 
-            'by', 'this', 'with', 'i', 'you', 'it', 'not', 'or', 'be', 'are',
-            'from', 'at', 'as', 'your', 'have', 'more', 'has', 'if', 'my',
-            'do', 'will', 'can', 'about', 'which', 'their', 'when', 'what'
-        ]
+    # Simple keyword-based sentiment analysis
+    positive_words = {
+        'en': ['good', 'great', 'excellent', 'positive', 'happy', 'like', 'love', 'best', 'better', 'improved'],
+        'tr': ['iyi', 'güzel', 'harika', 'olumlu', 'mutlu', 'sevmek', 'aşk', 'en iyi', 'daha iyi', 'gelişmiş']
+    }
     
-    # Create and configure the word cloud
-    wc = WordCloud(
-        background_color='white',
-        max_words=100,
-        width=800,
-        height=400,
-        stopwords=set(stopwords),
-        contour_width=1,
-        contour_color='steelblue'
+    negative_words = {
+        'en': ['bad', 'poor', 'terrible', 'negative', 'unhappy', 'dislike', 'hate', 'worst', 'worse', 'problem'],
+        'tr': ['kötü', 'zayıf', 'korkunç', 'olumsuz', 'mutsuz', 'sevmemek', 'nefret', 'en kötü', 'daha kötü', 'sorun']
+    }
+    
+    lang_key = 'tr' if language == 'tr' else 'en'
+    
+    for response in responses:
+        response_lower = response.lower()
+        pos_count = sum(1 for word in positive_words[lang_key] if word in response_lower)
+        neg_count = sum(1 for word in negative_words[lang_key] if word in response_lower)
+        
+        # Calculate sentiment score between -2 (very negative) and 2 (very positive)
+        if pos_count == 0 and neg_count == 0:
+            score = 0  # neutral
+        else:
+            score = (pos_count - neg_count) / max(1, pos_count + neg_count) * 2
+        
+        sentiment_scores.append(score)
+    
+    # Create bins for Likert scale
+    bins = [-2, -1, 0, 1, 2]
+    bin_labels = ['Very Negative', 'Negative', 'Neutral', 'Positive', 'Very Positive'] if lang_key == 'en' else ['Çok Olumsuz', 'Olumsuz', 'Nötr', 'Olumlu', 'Çok Olumlu']
+    counts = [0, 0, 0, 0, 0]  # Initialize counts for each bin
+    
+    # Count responses in each bin
+    for score in sentiment_scores:
+        # Convert score to bin index (0-4)
+        bin_idx = min(4, max(0, int((score + 2) / 4 * 5)))
+        counts[bin_idx] += 1
+    
+    # Create a bar chart for Likert scale
+    fig = go.Figure(data=[
+        go.Bar(
+            x=bin_labels,
+            y=counts,
+            marker_color=['#d7191c', '#fdae61', '#ffffbf', '#a6d96a', '#1a9641'],
+            text=counts,
+            textposition='auto'
+        )
+    ])
+    
+    # Update layout
+    fig.update_layout(
+        title="Response Sentiment Distribution" if lang_key == 'en' else "Cevap Duygu Dağılımı",
+        xaxis_title="Sentiment" if lang_key == 'en' else "Duygu",
+        yaxis_title="Number of Responses" if lang_key == 'en' else "Cevap Sayısı",
+        height=500
     )
-    
-    # Generate the word cloud
-    wc.generate(text)
-    
-    # Create figure and axis
-    fig, ax = plt.subplots(figsize=(10, 5))
-    ax.imshow(wc, interpolation='bilinear')
-    ax.axis('off')
-    plt.tight_layout()
     
     return fig

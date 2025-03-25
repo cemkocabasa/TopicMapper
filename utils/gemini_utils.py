@@ -152,3 +152,78 @@ def generate_embeddings(model, texts: List[str]) -> np.ndarray:
             embeddings.append(np.random.randn(32).astype(np.float32))
     
     return np.array(embeddings)
+
+def generate_cluster_summaries(model, question: str, responses: List[str], clusters: List[int], n_clusters: int, language: str) -> List[str]:
+    """
+    Generate summaries for each cluster using Gemini.
+    
+    Args:
+        model: The Gemini model instance
+        question: The original question
+        responses: List of text responses
+        clusters: List of cluster assignments
+        n_clusters: Number of clusters
+        language: Language code ('en' for English, 'tr' for Turkish)
+    
+    Returns:
+        List of cluster summaries
+    """
+    cluster_summaries = []
+    
+    for cluster_id in range(n_clusters):
+        # Get responses in this cluster
+        cluster_responses = [responses[i] for i in range(len(responses)) if clusters[i] == cluster_id]
+        
+        if not cluster_responses:
+            # If the cluster is empty, provide a placeholder summary
+            summary = "No responses in this cluster" if language != 'tr' else "Bu kümede yanıt yok"
+            cluster_summaries.append(summary)
+            continue
+        
+        # Join the responses for this cluster
+        joined_responses = "\n".join(cluster_responses)
+        
+        # Create prompt based on language
+        if language == 'tr':
+            prompt = f"""
+            Lütfen aşağıdaki soruya verilen yanıtları özetleyin. Tüm bu yanıtlar aynı kümede yer almaktadır.
+            
+            Soru: {question}
+            
+            Küme {cluster_id + 1} yanıtları:
+            {joined_responses}
+            
+            Bu kümedeki yanıtların ortak temalarını, öne çıkan noktalarını ve temel düşüncelerini 2-3 cümle ile özetleyin.
+            Lütfen yanıtların hangi konularla ilgili olduğuna ve başlıca özelliklerine odaklanın.
+            """
+        else:
+            prompt = f"""
+            Please summarize the following responses to a question. All these responses belong to the same cluster.
+            
+            Question: {question}
+            
+            Cluster {cluster_id + 1} responses:
+            {joined_responses}
+            
+            Provide a 2-3 sentence summary of the common themes, key points, and main ideas in this cluster.
+            Focus on what the responses are about and their defining characteristics.
+            """
+        
+        try:
+            # Get summary from Gemini
+            response = model.generate_content(prompt)
+            summary = response.text.strip()
+            
+            # Truncate if too long
+            if len(summary) > 300:
+                summary = summary[:297] + "..."
+                
+            cluster_summaries.append(summary)
+            
+        except Exception as e:
+            print(f"Error generating cluster summary: {e}")
+            # Fallback summary
+            fallback = "Cluster summary unavailable" if language != 'tr' else "Küme özeti mevcut değil"
+            cluster_summaries.append(fallback)
+    
+    return cluster_summaries

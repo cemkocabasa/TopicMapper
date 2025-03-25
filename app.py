@@ -9,12 +9,13 @@ from datetime import datetime
 from utils.gemini_utils import (
     initialize_gemini_model,
     extract_topics,
-    generate_embeddings
+    generate_embeddings,
+    generate_cluster_summaries
 )
 from utils.visualization import (
     create_topic_visualization,
     create_cluster_visualization,
-    create_word_cloud
+    create_likert_scale_visualization
 )
 from utils.clustering import perform_clustering
 from utils.data_storage import save_analysis, load_previous_analyses
@@ -131,8 +132,27 @@ def display_analysis_results(analysis, n_clusters):
         for i, response in enumerate(analysis['responses']):
             st.write(f"{i+1}. {response}")
     
+    # Generate cluster summaries if they don't exist
+    if 'cluster_summaries' not in analysis:
+        with st.spinner("Generating cluster summaries..."):
+            # Initialize Gemini model
+            gemini_model = initialize_gemini_model()
+            
+            # Generate cluster summaries
+            analysis['cluster_summaries'] = generate_cluster_summaries(
+                gemini_model,
+                analysis['question'],
+                analysis['responses'],
+                analysis['clusters'],
+                n_clusters,
+                analysis['language']
+            )
+            
+            # Save the updated analysis
+            save_analysis(analysis)
+    
     # Display visualizations in tabs
-    tab1, tab2, tab3 = st.tabs(["Topics", "Clusters", "Word Cloud"])
+    tab1, tab2, tab3 = st.tabs(["Topics", "Clusters", "Sentiment"])
     
     with tab1:
         st.subheader("Topic Analysis")
@@ -141,6 +161,23 @@ def display_analysis_results(analysis, n_clusters):
     
     with tab2:
         st.subheader("Response Clustering")
+        
+        # Display cluster summaries
+        for i, summary in enumerate(analysis.get('cluster_summaries', [])):
+            with st.expander(f"Cluster {i+1} Summary"):
+                st.write(summary)
+                
+                # Get responses in this cluster
+                cluster_responses = [analysis['responses'][j] for j in range(len(analysis['responses'])) 
+                                    if analysis['clusters'][j] == i]
+                
+                # Show responses in this cluster
+                if cluster_responses:
+                    st.write("**Responses in this cluster:**")
+                    for j, resp in enumerate(cluster_responses):
+                        st.write(f"{j+1}. {resp}")
+        
+        # Display cluster visualization
         cluster_chart = create_cluster_visualization(
             analysis['embeddings'], 
             analysis['clusters'], 
@@ -150,9 +187,9 @@ def display_analysis_results(analysis, n_clusters):
         st.plotly_chart(cluster_chart, use_container_width=True)
     
     with tab3:
-        st.subheader("Word Cloud")
-        word_cloud = create_word_cloud(analysis['responses'], analysis['language'])
-        st.pyplot(word_cloud)
+        st.subheader("Sentiment Analysis")
+        sentiment_chart = create_likert_scale_visualization(analysis['responses'], analysis['language'])
+        st.plotly_chart(sentiment_chart, use_container_width=True)
 
 def display_previous_analyses():
     """Display the list of previous analyses."""
