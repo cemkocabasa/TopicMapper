@@ -21,7 +21,8 @@ def initialize_gemini_model():
 
 def extract_topics(model, question: str, responses: List[str], language: str) -> List[Dict[str, Any]]:
     """
-    Extract topics from responses using Gemini.
+    Extract topics from responses using Gemini.git
+    
     
     Args:
         model: The Gemini model instance
